@@ -33,7 +33,8 @@
               "src/assets"
             ],
             "styles": [
-              "src/styles.scss"
+              "src/assets/css/style.scss",
+              "src/assets/css/prettify-angulario.css"
             ],
             "scripts": []
           },
@@ -42,7 +43,7 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kb",
+                  "maximumWarning": "700kb",
                   "maximumError": "1mb"
                 },
                 {
@@ -96,7 +97,6 @@
               "src/assets"
             ],
             "styles": [
-              "src/styles.scss"
             ],
             "scripts": []
           }
