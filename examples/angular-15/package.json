@@ -2,7 +2,7 @@
   "name": "angular-15",
   "version": "0.0.0",
   "scripts": {
-    "clean:cpu": "bash -c \"rm -rf .angular/ dist node_modules/.cli-ngcc/ && node --cpu-prof --cpu-prof-dir=cpu ./node_modules/@angular/cli/bin/ng.js build\"",
+    "clean:cpu": "bash -c \"rm -rf .angular/ dist && node --cpu-prof --cpu-prof-dir=cpu ./node_modules/@angular/cli/bin/ng.js build\"",
     "clean:cpu:rspack": "bash -c \"rm -rf .angular/ dist node_modules/.cli-ngcc/ && node --cpu-prof --cpu-prof-dir=cpu rspack build\"",
     "ng": "ng",
     "start": "ng serve",
