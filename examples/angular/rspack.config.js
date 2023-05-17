@@ -162,7 +162,7 @@ module.exports = {
 	plugins: [
 		// TODO: Add this back after https://github.com/web-infra-dev/rspack/issues/2619 lands
 		// new DedupeModuleResolvePlugin(),
-		new NamedChunksPlugin(),
+		// new NamedChunksPlugin(),
 		new OccurrencesPlugin({
 			aot: true,
 			scriptsOptimization: false
