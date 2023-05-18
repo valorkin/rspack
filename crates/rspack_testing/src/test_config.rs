@@ -39,6 +39,10 @@ fn default_public_path() -> String {
   "auto".to_string()
 }
 
+fn default_tree_shaking() -> String {
+  "false".to_string()
+}
+
 fn default_target() -> Vec<String> {
   vec!["web".to_string(), "es2022".to_string()]
 }
@@ -46,8 +50,16 @@ fn enable_runtime_by_default() -> Option<String> {
   Some("runtime".to_string())
 }
 
-fn default_chunk_filename() -> String {
-  "[name][ext]".to_string()
+fn default_js_filename() -> String {
+  "[name].js".to_string()
+}
+
+fn default_css_filename() -> String {
+  "[name].css".to_string()
+}
+
+fn default_map_filename() -> String {
+  "[file].map".to_string()
 }
 
 fn default_optimization_module_ids() -> String {
@@ -101,6 +113,8 @@ pub struct Optimization {
   // True by default to reduce code in snapshots.
   #[serde(default = "true_by_default")]
   pub remove_available_modules: bool,
+  #[serde(default = "true_by_default")]
+  pub remove_empty_chunks: bool,
   #[serde(default = "default_optimization_module_ids")]
   pub module_ids: String,
   #[serde(default = "default_optimization_side_effects")]
@@ -155,8 +169,8 @@ pub struct Builtins {
   pub html: Vec<HtmlPluginConfig>,
   #[serde(default)]
   pub minify_options: Option<Minification>,
-  #[serde(default)]
-  pub tree_shaking: bool,
+  #[serde(default = "default_tree_shaking")]
+  pub tree_shaking: String,
   #[serde(default)]
   pub preset_env: Option<PresetEnv>,
   #[serde(default)]
@@ -232,16 +246,29 @@ pub struct Output {
   pub clean: bool,
   #[serde(default = "default_public_path")]
   pub public_path: String,
-  #[serde(default = "default_chunk_filename")]
+  #[serde(default = "default_js_filename")]
   pub filename: String,
-  #[serde(default = "default_chunk_filename")]
+  #[serde(default = "default_js_filename")]
   pub chunk_filename: String,
-  #[serde(default = "default_chunk_filename")]
+  #[serde(default = "default_css_filename")]
   pub css_filename: String,
-  #[serde(default = "default_chunk_filename")]
+  #[serde(default = "default_css_filename")]
   pub css_chunk_filename: String,
-  #[serde(default = "default_chunk_filename")]
+  #[serde(default = "default_map_filename")]
   pub source_map_filename: String,
+  #[serde(default)]
+  pub library: Option<LibraryOptions>,
+}
+
+#[derive(Debug, JsonSchema, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LibraryOptions {
+  // pub name: Option<LibraryName>,
+  pub export: Option<Vec<String>>,
+  // webpack type
+  pub r#type: String,
+  pub umd_named_define: Option<bool>,
+  // pub auxiliary_comment: Option<LibraryAuxiliaryComment>,
 }
 
 #[derive(Debug, JsonSchema, Deserialize)]
@@ -388,6 +415,10 @@ impl TestConfig {
         css_filename: c::Filename::from_str(&self.output.css_filename).expect("Should exist"),
         css_chunk_filename: c::Filename::from_str(&self.output.css_chunk_filename)
           .expect("Should exist"),
+        hot_update_chunk_filename: c::Filename::from_str("[id].[fullhash].hot-update.js")
+          .expect("Should exist"),
+        hot_update_main_filename: c::Filename::from_str("[runtime].[fullhash].hot-update.json")
+          .expect("Should exist"),
         asset_module_filename: c::Filename::from_str("[hash][ext][query]").expect("Should exist"),
         wasm_loading: c::WasmLoading::Enable(c::WasmLoadingType::from("fetch")),
         webassembly_module_filename: c::Filename::from_str("[hash].module.wasm")
@@ -396,8 +427,14 @@ impl TestConfig {
         unique_name: "__rspack_test__".to_string(),
         chunk_loading_global: "webpackChunkwebpack".to_string(),
         path: context.join("dist"),
-        library: None,
-        enabled_library_types: None,
+        library: self.output.library.map(|l| c::LibraryOptions {
+          name: None,
+          export: None,
+          library_type: l.r#type,
+          umd_named_define: None,
+          auxiliary_comment: None,
+        }),
+        enabled_library_types: Some(vec!["system".to_string()]),
         strict_module_error_handling: false,
         global_object: "self".to_string(),
         import_function_name: "import".to_string(),
@@ -423,7 +460,7 @@ impl TestConfig {
       builtins: c::Builtins {
         define: self.builtins.define,
         provide: self.builtins.provide,
-        tree_shaking: self.builtins.tree_shaking,
+        tree_shaking: self.builtins.tree_shaking.into(),
         minify_options: self.builtins.minify_options.map(|op| c::Minification {
           passes: op.passes,
           drop_console: op.drop_console,
@@ -453,6 +490,7 @@ impl TestConfig {
       }),
       optimization: c::Optimization {
         remove_available_modules: self.optimization.remove_available_modules,
+        remove_empty_chunks: self.optimization.remove_empty_chunks,
         side_effects: c::SideEffectOption::from(self.optimization.side_effects.as_str()),
       },
     };
@@ -489,6 +527,20 @@ impl TestConfig {
       })
       .boxed(),
     );
+    if let Some(library) = &options.output.library {
+      let library = library.library_type.as_str();
+      match library {
+        "system" => {
+          plugins.push(rspack_plugin_library::SystemLibraryPlugin::default().boxed());
+        }
+        "amd" | "amd-require" => {
+          plugins.push(rspack_plugin_library::ExportPropertyLibraryPlugin::default().boxed());
+          plugins
+            .push(rspack_plugin_library::AmdLibraryPlugin::new("amd-require".eq(library)).boxed());
+        }
+        _ => {}
+      }
+    }
     plugins.push(rspack_plugin_json::JsonPlugin {}.boxed());
     match &options.target.platform {
       TargetPlatform::Web => {

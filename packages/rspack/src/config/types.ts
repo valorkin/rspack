@@ -13,6 +13,7 @@ import webpackDevServer from "webpack-dev-server";
 import { Compiler } from "../compiler";
 import * as oldBuiltins from "./builtins";
 import { Compilation } from "..";
+import { RawFallbackCacheGroupOptions } from "@rspack/binding";
 
 export type { BannerConditions, BannerCondition } from "./builtins";
 
@@ -138,6 +139,8 @@ export interface Output {
 	cssFilename?: CssFilename;
 	cssChunkFilename?: CssChunkFilename;
 	assetModuleFilename?: AssetModuleFilename;
+	hotUpdateMainFilename?: HotUpdateMainFilename;
+	hotUpdateChunkFilename?: HotUpdateChunkFilename;
 	uniqueName?: UniqueName;
 	chunkLoadingGlobal?: ChunkLoadingGlobal;
 	enabledLibraryTypes?: EnabledLibraryTypes;
@@ -170,6 +173,8 @@ export type ChunkFilename = FilenameTemplate;
 export type CrossOriginLoading = false | "anonymous" | "use-credentials";
 export type CssFilename = FilenameTemplate;
 export type CssChunkFilename = FilenameTemplate;
+export type HotUpdateChunkFilename = FilenameTemplate;
+export type HotUpdateMainFilename = FilenameTemplate;
 export type FilenameTemplate = string;
 export type UniqueName = string;
 export type ChunkLoadingGlobal = string;
@@ -243,6 +248,8 @@ export interface OutputNormalized {
 	crossOriginLoading?: CrossOriginLoading;
 	cssFilename?: CssFilename;
 	cssChunkFilename?: CssChunkFilename;
+	hotUpdateMainFilename?: HotUpdateMainFilename;
+	hotUpdateChunkFilename?: HotUpdateChunkFilename;
 	assetModuleFilename?: AssetModuleFilename;
 	uniqueName?: UniqueName;
 	chunkLoadingGlobal?: ChunkLoadingGlobal;
@@ -285,6 +292,7 @@ export interface ResolveOptions {
 	preferRelative?: boolean;
 	tsConfigPath?: string;
 	fullySpecified?: boolean;
+	exportsFields?: string[];
 	byDependency?: {
 		[k: string]: ResolveOptions;
 	};
@@ -563,6 +571,7 @@ export interface StatsOptions {
 	timings?: boolean;
 	builtAt?: boolean;
 	moduleAssets?: boolean;
+	nestedModules?: boolean;
 }
 
 ///// Optimization /////
@@ -573,6 +582,10 @@ export interface Optimization {
 	splitChunks?: OptimizationSplitChunksOptions | false;
 	runtimeChunk?: OptimizationRuntimeChunk;
 	removeAvailableModules?: boolean;
+	/**
+	 * Remove chunks which are empty.
+	 */
+	removeEmptyChunks?: boolean;
 	sideEffects?: "flag" | boolean;
 	realContentHash?: boolean;
 }
@@ -588,6 +601,10 @@ export interface OptimizationSplitChunksOptions {
 	enforceSizeThreshold?: OptimizationSplitChunksSizes;
 	minRemainingSize?: OptimizationSplitChunksSizes;
 	name?: string | false;
+	maxSize?: number;
+	maxAsyncSize?: number;
+	maxInitialSize?: number;
+	fallbackCacheGroup?: RawFallbackCacheGroupOptions;
 }
 export interface OptimizationSplitChunksCacheGroup {
 	chunks?: "initial" | "async" | "all";
@@ -597,6 +614,9 @@ export interface OptimizationSplitChunksCacheGroup {
 	reuseExistingChunk?: boolean;
 	test?: RegExp;
 	minSize?: number;
+	maxSize?: number;
+	maxAsyncSize?: number;
+	maxInitialSize?: number;
 }
 export type OptimizationSplitChunksSizes = number;
 export type OptimizationRuntimeChunk =

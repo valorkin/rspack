@@ -125,6 +125,18 @@ module.exports = {
 				}
 			]
 		},
+		HotUpdateChunkFilename: {
+			description:
+				"The filename of the Hot Update Chunks. They are inside the output.path directory.",
+			type: "string",
+			absolutePath: false
+		},
+		HotUpdateMainFilename: {
+			description:
+				"The filename of the Hot Update Main File. It is inside the 'output.path' directory.",
+			type: "string",
+			absolutePath: false
+		},
 		WebassemblyModuleFilename: {
 			description:
 				"The filename of WebAssembly modules as relative path inside the 'output.path' directory.",
@@ -339,6 +351,10 @@ module.exports = {
 				newSplitChunks: {
 					description: "Enable new SplitChunksPlugin",
 					type: "boolean"
+				},
+				css: {
+					description: "Enable native css support.",
+					type: "boolean"
 				}
 			}
 		},
@@ -375,6 +391,14 @@ module.exports = {
 		ExternalItemValue: {
 			description: "The dependency used for the external.",
 			anyOf: [
+				{
+					type: "array",
+					items: {
+						description: "A part of the target of the external.",
+						type: "string",
+						minLength: 1
+					}
+				},
 				{
 					description: "The target of the external.",
 					type: "string"
@@ -849,6 +873,10 @@ module.exports = {
 						"Removes modules from chunks when these modules are already included in all parents.",
 					type: "boolean"
 				},
+				removeEmptyChunks: {
+					description: "Remove chunks which are empty.",
+					type: "boolean"
+				},
 				runtimeChunk: {
 					$ref: "#/definitions/OptimizationRuntimeChunk"
 				},
@@ -960,6 +988,17 @@ module.exports = {
 						"Try to reuse existing chunk (with name) when it has matching modules.",
 					type: "boolean"
 				},
+				enforce: {
+					description:
+						"ignore splitChunks.minSize, splitChunks.minChunks, splitChunks.maxAsyncRequests and splitChunks.maxInitialRequests options and always create chunks for this cache group.",
+					type: "boolean"
+				},
+				hidePathInfo: {
+					type: "boolean"
+				},
+				maxSize: {
+					type: "number"
+				},
 				test: {
 					description: "Assign modules to a cache group by module name.",
 					anyOf: [
@@ -983,6 +1022,26 @@ module.exports = {
 			type: "object",
 			additionalProperties: false,
 			properties: {
+				fallbackCacheGroup: {
+					type: "object",
+					properties: {
+						maxSize: {
+							type: "number"
+						},
+						maxInitialSize: {
+							type: "number"
+						},
+						maxAsyncSize: {
+							type: "number"
+						},
+						minSize: {
+							type: "number"
+						}
+					}
+				},
+				hidePathInfo: {
+					type: "boolean"
+				},
 				name: {
 					description: "The name or name for chunks.",
 					anyOf: [
@@ -1057,6 +1116,15 @@ module.exports = {
 						}
 					]
 				},
+				maxSize: {
+					type: "number"
+				},
+				maxInitialSize: {
+					type: "number"
+				},
+				maxAsyncSize: {
+					type: "number"
+				},
 				reuseExistingChunk: {
 					description:
 						"If the current chunk contains modules already split out from the main bundle, it will be reused instead of a new one being generated. This can affect the resulting file name of the chunk.",
@@ -1125,6 +1193,12 @@ module.exports = {
 				},
 				cssFilename: {
 					$ref: "#/definitions/CssFilename"
+				},
+				hotUpdateChunkFilename: {
+					$ref: "#/definitions/HotUpdateChunkFilename"
+				},
+				hotUpdateMainFilename: {
+					$ref: "#/definitions/HotUpdateMainFilename"
 				},
 				enabledWasmLoadingTypes: {
 					$ref: "#/definitions/EnabledWasmLoadingTypes"
@@ -1418,6 +1492,16 @@ module.exports = {
 				tsConfigPath: {
 					description: "Path to tsconfig.json",
 					type: "string"
+				},
+				exportsFields: {
+					description:
+						"Fields in the description file (usually package.json) which are used to redirect requests inside the module.",
+					type: "array",
+					items: {
+						description:
+							"Field name from the description file (package.json) which are used to find the default entry point.",
+						type: "string"
+					}
 				}
 			}
 		},
@@ -1865,6 +1949,11 @@ module.exports = {
 				},
 				builtAt: {
 					description: "Add built at time information.",
+					type: "boolean"
+				},
+				nestedModules: {
+					description:
+						"Add information about modules nested in other modules (like with module concatenation).",
 					type: "boolean"
 				}
 			}

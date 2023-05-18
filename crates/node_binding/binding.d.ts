@@ -27,6 +27,10 @@ export class JsCompilation {
   getBuildDependencies(): Array<string>
   pushDiagnostic(severity: "error" | "warning", title: string, message: string): void
   getStats(): JsStats
+  getAssetPath(filename: string, data: PathData): string
+  getAssetPathWithInfo(filename: string, data: PathData): PathWithInfo
+  getPath(filename: string, data: PathData): string
+  getPathWithInfo(filename: string, data: PathData): PathWithInfo
   addFileDependencies(deps: Array<string>): void
   addContextDependencies(deps: Array<string>): void
   addMissingDependencies(deps: Array<string>): void
@@ -35,8 +39,8 @@ export class JsCompilation {
 
 export class JsStats {
   getAssets(): JsStatsGetAssets
-  getModules(reasons: boolean, moduleAssets: boolean): Array<JsStatsModule>
-  getChunks(chunkModules: boolean, chunksRelations: boolean, reasons: boolean, moduleAssets: boolean): Array<JsStatsChunk>
+  getModules(reasons: boolean, moduleAssets: boolean, nestedModules: boolean): Array<JsStatsModule>
+  getChunks(chunkModules: boolean, chunksRelations: boolean, reasons: boolean, moduleAssets: boolean, nestedModules: boolean): Array<JsStatsChunk>
   getEntrypoints(): Array<JsStatsChunkGroup>
   getNamedChunkGroups(): Array<JsStatsChunkGroup>
   getErrors(): Array<JsStatsError>
@@ -102,10 +106,9 @@ export interface JsAsset {
 }
 
 export interface JsAssetInfo {
-  /**
-   * if the asset can be long term cached forever (contains a hash)
-   * whether the asset is minimized
-   */
+  /** if the asset can be long term cached forever (contains a hash) */
+  immutable: boolean
+  /** whether the asset is minimized */
   minimized: boolean
   /**
    * the value(s) of the full hash used for this asset
@@ -113,7 +116,7 @@ export interface JsAssetInfo {
    * the value(s) of the module hash used for this asset
    * the value(s) of the content hash used for this asset
    */
-  contentHash?: string
+  contentHash: Array<string>
   /**
    * when asset was created from a source file (potentially transformed), the original filename relative to compilation context
    * size in bytes, only set after asset has been emitted
@@ -332,6 +335,22 @@ export interface NodeFS {
   mkdirp: (...args: any[]) => any
 }
 
+export interface PathData {
+  filename?: string
+  query?: string
+  fragment?: string
+  hash?: string
+  contentHash?: string
+  runtime?: string
+  url?: string
+  id?: string
+}
+
+export interface PathWithInfo {
+  path: string
+  info: JsAssetInfo
+}
+
 export interface RawAssetParserDataUrlOption {
   maxSize?: number
 }
@@ -371,7 +390,7 @@ export interface RawBuiltins {
   presetEnv?: RawPresetEnv
   define: Record<string, string>
   provide: Record<string, string[]>
-  treeShaking: boolean
+  treeShaking: string
   progress?: RawProgressPluginConfig
   react: RawReactOptions
   decorator?: RawDecoratorOptions
@@ -392,8 +411,12 @@ export interface RawCacheGroupOptions {
   chunks?: string
   minChunks?: number
   minSize?: number
+  maxSize?: number
+  maxAsyncSize?: number
+  maxInitialSize?: number
   name?: string
   reuseExistingChunk?: boolean
+  enforce?: boolean
 }
 
 export interface RawCacheOptions {
@@ -474,14 +497,23 @@ export interface RawExternalItemFnResult {
 }
 
 export interface RawExternalItemValue {
-  type: "string" | "bool"
+  type: "string" | "bool" | "array"
   stringPayload?: string
   boolPayload?: boolean
+  arrayPayload?: Array<string>
 }
 
 export interface RawExternalsPresets {
   node: boolean
   web: boolean
+}
+
+export interface RawFallbackCacheGroupOptions {
+  chunks?: string
+  minSize?: number
+  maxSize?: number
+  maxAsyncSize?: number
+  maxInitialSize?: number
 }
 
 export interface RawGlobOptions {
@@ -604,6 +636,7 @@ export interface RawOptimizationOptions {
   splitChunks?: RawSplitChunksOptions
   moduleIds: string
   removeAvailableModules: boolean
+  removeEmptyChunks: boolean
   sideEffects: string
   realContentHash: boolean
 }
@@ -649,6 +682,8 @@ export interface RawOutputOptions {
   crossOriginLoading: RawCrossOriginLoading
   cssFilename: string
   cssChunkFilename: string
+  hotUpdateMainFilename: string
+  hotUpdateChunkFilename: string
   uniqueName: string
   chunkLoadingGlobal: string
   library?: RawLibraryOptions
@@ -747,6 +782,7 @@ export interface RawResolveOptions {
   modules?: Array<string>
   byDependency?: Record<string, RawResolveOptions>
   fullySpecified?: boolean
+  exportsFields?: Array<string>
 }
 
 export interface RawRuleSetCondition {
@@ -775,6 +811,7 @@ export interface RawSnapshotStrategy {
 }
 
 export interface RawSplitChunksOptions {
+  fallbackCacheGroup?: RawFallbackCacheGroupOptions
   name?: string
   cacheGroups?: Record<string, RawCacheGroupOptions>
   /** What kind of chunks should be selected. */
@@ -785,6 +822,9 @@ export interface RawSplitChunksOptions {
   minSize?: number
   enforceSizeThreshold?: number
   minRemainingSize?: number
+  maxSize?: number
+  maxAsyncSize?: number
+  maxInitialSize?: number
 }
 
 export interface RawStatsOptions {

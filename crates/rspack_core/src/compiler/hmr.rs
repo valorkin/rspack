@@ -13,28 +13,21 @@ use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
 use crate::{
   fast_set, AssetInfo, Chunk, ChunkKind, Compilation, CompilationAsset, Compiler, ModuleIdentifier,
-  RenderManifestArgs, RuntimeSpec, SetupMakeParam,
+  PathData, RenderManifestArgs, RuntimeSpec, SetupMakeParam,
 };
-
-const HOT_UPDATE_MAIN_FILENAME: &str = "hot-update.json";
-
-fn get_hot_update_main_filename(chunk_name: &str) -> String {
-  format!("{chunk_name}.{HOT_UPDATE_MAIN_FILENAME}")
-}
 
 #[derive(Default)]
 struct HotUpdateContent {
+  runtime: RuntimeSpec,
   updated_chunk_ids: HashSet<String>,
   removed_chunk_ids: HashSet<String>,
   _removed_modules: IdentifierSet,
-  // TODO: should [chunk-name].[hash].hot-update.json
-  filename: String,
 }
 
 impl HotUpdateContent {
-  fn new(chunk_name: &str) -> Self {
+  fn new(runtime: RuntimeSpec) -> Self {
     Self {
-      filename: get_hot_update_main_filename(chunk_name),
+      runtime,
       ..Default::default()
     }
   }
@@ -52,6 +45,7 @@ where
   ) -> Result<()> {
     assert!(!changed_files.is_empty() || !removed_files.is_empty());
     let old = self.compilation.get_stats();
+    let old_hash = self.compilation.hash.clone();
     fn collect_changed_modules(
       compilation: &Compilation,
     ) -> (IdentifierMap<(u64, String)>, IdentifierMap<String>) {
@@ -107,7 +101,12 @@ where
 
     let mut hot_update_main_content_by_runtime = all_old_runtime
       .iter()
-      .map(|id| (id.to_string(), HotUpdateContent::new(id.as_ref())))
+      .map(|runtime| {
+        (
+          runtime.to_string(),
+          HotUpdateContent::new(HashSet::from_iter([runtime.clone()])),
+        )
+      })
       .collect::<HashMap<String, HotUpdateContent>>();
 
     let mut old_chunks: Vec<(String, IdentifierSet, RuntimeSpec)> = vec![];
@@ -159,6 +158,8 @@ where
         new_compilation.module_graph = std::mem::take(&mut self.compilation.module_graph);
         new_compilation.make_failed_dependencies =
           std::mem::take(&mut self.compilation.make_failed_dependencies);
+        new_compilation.make_failed_module =
+          std::mem::take(&mut self.compilation.make_failed_module);
         new_compilation.entry_dependencies =
           std::mem::take(&mut self.compilation.entry_dependencies);
         new_compilation.lazy_visit_modules =
@@ -170,6 +171,14 @@ where
           std::mem::take(&mut self.compilation.missing_dependencies);
         new_compilation.build_dependencies =
           std::mem::take(&mut self.compilation.build_dependencies);
+        // tree shaking usage start
+        new_compilation.optimize_analyze_result_map =
+          std::mem::take(&mut self.compilation.optimize_analyze_result_map);
+        new_compilation.entry_module_identifiers =
+          std::mem::take(&mut self.compilation.entry_module_identifiers);
+        new_compilation.bailout_module_identifiers =
+          std::mem::take(&mut self.compilation.bailout_module_identifiers);
+        // tree shaking usage end
 
         // seal stage used
         new_compilation.code_splitting_cache =
@@ -358,7 +367,7 @@ where
             module.hash(&mut hot_update_chunk.hash);
           }
         }
-        let hash = format!("{:x}", hot_update_chunk.hash.finish());
+        let hash = format!("{:016x}", hot_update_chunk.hash.finish());
         hot_update_chunk
           .content_hash
           .insert(crate::SourceType::JavaScript, hash.clone());
@@ -401,13 +410,16 @@ where
             entry.info.with_hot_module_replacement(true),
           );
 
-          // TODO: should use `get_path_info` to get filename.
           let chunk = self
             .compilation
             .chunk_by_ukey
-            .get(&entry.path_options.chunk_ukey);
-          let id = chunk.map_or(String::new(), |c| c.expect_id().to_string());
-          self.compilation.emit_asset(id + ".hot-update.js", asset);
+            .get(&ukey)
+            .expect("should have update chunk");
+          let filename = self.compilation.get_path(
+            &self.compilation.options.output.hot_update_chunk_filename,
+            PathData::default().chunk(chunk).hash(&old_hash),
+          );
+          self.compilation.emit_asset(filename, asset);
         }
 
         new_runtime.iter().for_each(|runtime| {
@@ -428,8 +440,14 @@ where
         .iter()
         .map(|x| x.to_owned())
         .collect();
+      let filename = self.compilation.get_path(
+        &self.compilation.options.output.hot_update_main_filename,
+        PathData::default()
+          .runtime(&content.runtime)
+          .hash(&old_hash),
+      );
       self.compilation.emit_asset(
-        content.filename,
+        filename,
         CompilationAsset::new(
           Some(
             RawSource::Source(

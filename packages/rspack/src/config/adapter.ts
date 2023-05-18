@@ -181,6 +181,8 @@ function getRawOutput(output: OutputNormalized): RawOptions["output"] {
 		crossOriginLoading: getRawCrossOriginLoading(output.crossOriginLoading!),
 		cssFilename: output.cssFilename!,
 		cssChunkFilename: output.cssChunkFilename!,
+		hotUpdateChunkFilename: output.hotUpdateChunkFilename!,
+		hotUpdateMainFilename: output.hotUpdateMainFilename!,
 		uniqueName: output.uniqueName!,
 		chunkLoadingGlobal: output.chunkLoadingGlobal!,
 		enabledLibraryTypes: output.enabledLibraryTypes,
@@ -441,6 +443,11 @@ function getRawExternals(externals: Externals): RawOptions["externals"] {
 			return { type: "string", stringPayload: value };
 		} else if (typeof value === "boolean") {
 			return { type: "bool", boolPayload: value };
+		} else if (Array.isArray(value)) {
+			return {
+				type: "array",
+				arrayPayload: value
+			};
 		}
 		throw new Error("unreachable");
 	}
@@ -457,9 +464,10 @@ function getRawOptimization(
 	assert(
 		!isNil(optimization.moduleIds) &&
 			!isNil(optimization.removeAvailableModules) &&
+			!isNil(optimization.removeEmptyChunks) &&
 			!isNil(optimization.sideEffects) &&
 			!isNil(optimization.realContentHash),
-		"optimization.moduleIds, optimization.removeAvailableModules, optimization.sideEffects, optimization.realContentHash should not be nil after defaults"
+		"optimization.moduleIds, optimization.removeAvailableModules, optimization.removeEmptyChunks, optimization.sideEffects, optimization.realContentHash should not be nil after defaults"
 	);
 	return {
 		splitChunks: optimization.splitChunks
@@ -467,6 +475,7 @@ function getRawOptimization(
 			: undefined,
 		moduleIds: optimization.moduleIds,
 		removeAvailableModules: optimization.removeAvailableModules,
+		removeEmptyChunks: optimization.removeEmptyChunks,
 		sideEffects: String(optimization.sideEffects),
 		realContentHash: optimization.realContentHash
 	};
@@ -487,7 +496,10 @@ function getRawSplitChunksOptions(
 							minChunks: group.minChunks,
 							chunks: group.chunks,
 							reuseExistingChunk: group.reuseExistingChunk,
-							minSize: group.minSize
+							minSize: group.minSize,
+							maxAsyncSize: group.maxAsyncSize,
+							maxInitialSize: group.maxInitialSize,
+							maxSize: group.maxSize
 						};
 						return [key, normalizedGroup];
 					})
@@ -499,7 +511,11 @@ function getRawSplitChunksOptions(
 		minChunks: sc.minChunks,
 		minSize: sc.minSize,
 		enforceSizeThreshold: sc.enforceSizeThreshold,
-		minRemainingSize: sc.minRemainingSize
+		minRemainingSize: sc.minRemainingSize,
+		maxSize: sc.maxSize,
+		maxAsyncSize: sc.maxAsyncSize,
+		maxInitialSize: sc.maxInitialSize,
+		fallbackCacheGroup: sc.fallbackCacheGroup
 	};
 }
 

@@ -12,22 +12,22 @@ use swc_core::ecma::{
 pub struct CommonJSRequireDependency {
   id: Option<DependencyId>,
   request: JsWord,
-  // user_request: String,
-  category: &'static DependencyCategory,
-  dependency_type: &'static DependencyType,
+  optional: bool,
   span: Option<ErrorSpan>,
-  #[allow(unused)]
   ast_path: JsAstPath,
 }
 
 impl CommonJSRequireDependency {
-  pub fn new(request: JsWord, span: Option<ErrorSpan>, ast_path: JsAstPath) -> Self {
+  pub fn new(
+    request: JsWord,
+    span: Option<ErrorSpan>,
+    ast_path: JsAstPath,
+    optional: bool,
+  ) -> Self {
     Self {
       id: None,
       request,
-      // user_request,
-      category: &DependencyCategory::CommonJS,
-      dependency_type: &DependencyType::CjsRequire,
+      optional,
       span,
       ast_path,
     }
@@ -62,6 +62,10 @@ impl ModuleDependency for CommonJSRequireDependency {
 
   fn span(&self) -> Option<&ErrorSpan> {
     self.span.as_ref()
+  }
+
+  fn get_optional(&self) -> bool {
+    self.optional
   }
 }
 

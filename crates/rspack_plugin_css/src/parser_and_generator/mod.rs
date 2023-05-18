@@ -1,6 +1,5 @@
 #![allow(clippy::comparison_chain)]
 
-use std::path::Path;
 use std::sync::Arc;
 
 use indexmap::IndexMap;
@@ -10,8 +9,8 @@ use rspack_core::{
   rspack_sources::{
     MapOptions, RawSource, Source, SourceExt, SourceMap, SourceMapSource, SourceMapSourceOptions,
   },
-  GenerateContext, GenerationResult, Module, ModuleType, ParseContext, ParseResult,
-  ParserAndGenerator, SourceType,
+  BuildMetaExportsType, GenerateContext, GenerationResult, Module, ModuleType, ParseContext,
+  ParseResult, ParserAndGenerator, SourceType,
 };
 use rspack_core::{AstOrSource, ModuleAst, ModuleDependency};
 use rspack_error::{
@@ -102,9 +101,13 @@ impl ParserAndGenerator for CssParserAndGenerator {
       module_type,
       resource_data,
       compiler_options,
+      build_info,
+      build_meta,
       code_generation_dependencies,
       ..
     } = parse_context;
+    build_info.strict = true;
+    build_meta.exports_type = BuildMetaExportsType::Namespace;
     let cm: Arc<swc_core::common::SourceMap> = Default::default();
     let content = source.source().to_string();
     let css_modules = matches!(module_type, ModuleType::CssModule);
@@ -133,15 +136,13 @@ impl ParserAndGenerator for CssParserAndGenerator {
     }
 
     let locals = if css_modules {
-      let path = Path::new(&resource_data.resource_path).relative(&compiler_options.context);
+      let filename = &resource_data
+        .resource_path
+        .relative(&compiler_options.context);
       let result = swc_core::css::modules::compile(
         &mut stylesheet,
         ModulesTransformConfig {
-          name: path.file_stem().map(|n| n.to_string_lossy().to_string()),
-          path: path.parent().map(|p| p.to_string_lossy().to_string() + "/"),
-          ext: path
-            .extension()
-            .map(|e| format!("{}{}", ".", e.to_string_lossy())),
+          filename,
           local_name_ident: &self.config.modules.local_ident_name,
         },
       );

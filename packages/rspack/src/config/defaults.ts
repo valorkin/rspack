@@ -354,6 +354,12 @@ const applyOutputDefaults = (
 		}
 		return "[id].css";
 	});
+	D(
+		output,
+		"hotUpdateChunkFilename",
+		`[id].[fullhash].hot-update.${output.module ? "mjs" : "js"}`
+	);
+	D(output, "hotUpdateMainFilename", "[runtime].[fullhash].hot-update.json");
 	D(output, "assetModuleFilename", "[hash][ext][query]");
 	D(output, "webassemblyModuleFilename", "[hash].module.wasm");
 	F(output, "path", () => path.join(process.cwd(), "dist"));
@@ -532,6 +538,7 @@ const applyOptimizationDefaults = (
 	{ production, development }: { production: boolean; development: boolean }
 ) => {
 	D(optimization, "removeAvailableModules", true);
+	D(optimization, "removeEmptyChunks", true);
 	F(optimization, "moduleIds", () => {
 		if (production) return "deterministic";
 		return "named";
@@ -620,6 +627,7 @@ const getResolveDefaults = ({
 		extensions: [],
 		browserField,
 		mainFields: ["main"].filter(Boolean),
+		exportsFields: ["exports"],
 		byDependency: {
 			wasm: esmDeps(),
 			esm: esmDeps(),

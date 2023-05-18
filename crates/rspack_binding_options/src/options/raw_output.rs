@@ -6,7 +6,6 @@ use rspack_core::{
 use rspack_error::internal_error;
 use serde::Deserialize;
 
-#[cfg(feature = "node-api")]
 use crate::JsLoaderRunner;
 use crate::RawOptionsApply;
 
@@ -129,6 +128,8 @@ pub struct RawOutputOptions {
   pub cross_origin_loading: RawCrossOriginLoading,
   pub css_filename: String,
   pub css_chunk_filename: String,
+  pub hot_update_main_filename: String,
+  pub hot_update_chunk_filename: String,
   pub unique_name: String,
   pub chunk_loading_global: String,
   pub library: Option<RawLibraryOptions>,
@@ -150,7 +151,7 @@ impl RawOptionsApply for RawOutputOptions {
   fn apply(
     self,
     plugins: &mut Vec<BoxPlugin>,
-    #[cfg(feature = "node-api")] _: &JsLoaderRunner,
+    _: &JsLoaderRunner,
   ) -> Result<OutputOptions, rspack_error::Error> {
     self.apply_chunk_format_plugin(plugins)?;
     plugins.push(rspack_plugin_runtime::RuntimePlugin {}.boxed());
@@ -179,6 +180,8 @@ impl RawOptionsApply for RawOutputOptions {
       cross_origin_loading: self.cross_origin_loading.into(),
       css_filename: self.css_filename.into(),
       css_chunk_filename: self.css_chunk_filename.into(),
+      hot_update_main_filename: self.hot_update_main_filename.into(),
+      hot_update_chunk_filename: self.hot_update_chunk_filename.into(),
       library: self.library.map(Into::into),
       strict_module_error_handling: self.strict_module_error_handling,
       enabled_library_types: self.enabled_library_types,
@@ -385,6 +388,7 @@ impl RawOutputOptions {
             plugins.push(rspack_plugin_library::ExportPropertyLibraryPlugin::default().boxed());
             plugins.push(rspack_plugin_library::ModuleLibraryPlugin::default().boxed());
           }
+          "system" => plugins.push(rspack_plugin_library::SystemLibraryPlugin::default().boxed()),
           _ => {}
         }
       }

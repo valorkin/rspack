@@ -116,8 +116,8 @@ describe("snapshots", () => {
 		+       "pureFuncs": Array [],
 		+     },
 		@@ ... @@
-		-     "treeShaking": false,
-		+     "treeShaking": true,
+		-     "treeShaking": "false",
+		+     "treeShaking": "true",
 		@@ ... @@
 		-   "mode": "none",
 		+   "mode": undefined,
@@ -165,8 +165,8 @@ describe("snapshots", () => {
 		+       "pureFuncs": Array [],
 		+     },
 		@@ ... @@
-		-     "treeShaking": false,
-		+     "treeShaking": true,
+		-     "treeShaking": "false",
+		+     "treeShaking": "true",
 		@@ ... @@
 		-   "mode": "none",
 		+   "mode": "production",
@@ -247,6 +247,9 @@ describe("snapshots", () => {
 		@@ ... @@
 		-     "filename": "[name].js",
 		+     "filename": "[name].mjs",
+		@@ ... @@
+		-     "hotUpdateChunkFilename": "[id].[fullhash].hot-update.js",
+		+     "hotUpdateChunkFilename": "[id].[fullhash].hot-update.mjs",
 		@@ ... @@
 		-     "iife": true,
 		+     "iife": false,

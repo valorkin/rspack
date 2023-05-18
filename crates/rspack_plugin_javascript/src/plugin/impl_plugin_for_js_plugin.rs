@@ -143,7 +143,7 @@ impl Plugin for JsPlugin {
 
     Ok(Some((
       SourceType::JavaScript,
-      format!("{:x}", hasher.finish()),
+      format!("{:016x}", hasher.finish()),
     )))
   }
 
@@ -167,18 +167,22 @@ impl Plugin for JsPlugin {
       &compilation.options.output,
       &compilation.chunk_group_by_ukey,
     );
-
-    let output_path = filename_template.render_with_chunk(chunk, ".js", &SourceType::JavaScript);
-
-    let path_options = PathData {
-      chunk_ukey: args.chunk_ukey,
-    };
+    let (output_path, asset_info) = compilation.get_path_with_info(
+      filename_template,
+      PathData::default()
+        .chunk(chunk)
+        .content_hash_optional(
+          chunk
+            .content_hash
+            .get(&SourceType::JavaScript)
+            .map(|i| i.as_str()),
+        )
+        .runtime(&chunk.runtime),
+    );
     Ok(vec![RenderManifestEntry::new(
       source,
       output_path,
-      path_options,
-      AssetInfo::default()
-        .with_content_hash(chunk.content_hash.get(&SourceType::JavaScript).cloned()),
+      asset_info,
     )])
   }
 

@@ -2,13 +2,13 @@ use std::hash::Hash;
 
 use rspack_core::{
   rspack_sources::{ConcatSource, RawSource, SourceExt},
-  AdditionalChunkRuntimeRequirementsArgs, ExternalModule, Filename, JsChunkHashArgs, LibraryName,
-  LibraryOptions, Plugin, PluginAdditionalChunkRuntimeRequirementsOutput, PluginContext,
+  AdditionalChunkRuntimeRequirementsArgs, ExternalModule, Filename, JsChunkHashArgs, PathData,
+  Plugin, PluginAdditionalChunkRuntimeRequirementsOutput, PluginContext,
   PluginJsChunkHashHookOutput, PluginRenderHookOutput, RenderArgs, RuntimeGlobals, SourceType,
 };
-use rspack_error::Result;
 
 use super::utils::{external_arguments, external_dep_array};
+use crate::utils::normalize_name;
 
 #[derive(Debug)]
 pub struct AmdLibraryPlugin {
@@ -18,22 +18,6 @@ pub struct AmdLibraryPlugin {
 impl AmdLibraryPlugin {
   pub fn new(require_as_wrapper: bool) -> Self {
     Self { require_as_wrapper }
-  }
-
-  pub fn normalize_name(&self, o: &Option<LibraryOptions>) -> Result<Option<String>> {
-    if let Some(LibraryOptions {
-      name: Some(LibraryName {
-        root: Some(root), ..
-      }),
-      ..
-    }) = o
-    {
-      // TODO error "AMD library name must be a simple string or unset."
-      if let Some(name) = root.get(0) {
-        return Ok(Some(name.to_string()));
-      }
-    }
-    Ok(None)
   }
 }
 
@@ -73,15 +57,22 @@ impl Plugin for AmdLibraryPlugin {
     if compilation.options.output.iife || !chunk.has_runtime(&compilation.chunk_group_by_ukey) {
       fn_start.push_str(" return ");
     }
-    let name = self.normalize_name(&compilation.options.output.library)?;
+    let name = normalize_name(&compilation.options.output.library)?;
     let mut source = ConcatSource::default();
     if self.require_as_wrapper {
       source.add(RawSource::from(format!(
         "require({external_deps_array}, {fn_start}"
       )));
     } else if let Some(name) = name {
-      let normalize_name =
-        Filename::from(name).render_with_chunk(chunk, ".js", &SourceType::JavaScript);
+      let normalize_name = compilation.get_path(
+        &Filename::from(name),
+        PathData::default().chunk(chunk).content_hash_optional(
+          chunk
+            .content_hash
+            .get(&SourceType::JavaScript)
+            .map(|i| i.as_str()),
+        ),
+      );
       source.add(RawSource::from(format!(
         "define('{normalize_name}', {external_deps_array}, {fn_start}"
       )));

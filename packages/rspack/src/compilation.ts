@@ -17,7 +17,9 @@ import {
 	JsCompatSource,
 	JsCompilation,
 	JsModule,
-	JsStatsError
+	JsStatsChunk,
+	JsStatsError,
+	PathData
 } from "@rspack/binding";
 
 import {
@@ -28,15 +30,15 @@ import {
 	RspackPluginInstance
 } from "./config";
 import { ContextModuleFactory } from "./ContextModuleFactory";
-import * as ErrorHelpers from "./ErrorHelpers";
 import ResolverFactory from "./ResolverFactory";
 import { ChunkGroup } from "./chunk_group";
 import { Compiler } from "./compiler";
+import ErrorHelpers from "./ErrorHelpers";
 import { LogType, Logger } from "./logging/Logger";
 import { NormalModule } from "./normalModule";
 import { NormalModuleFactory } from "./normalModuleFactory";
 import { Stats, normalizeStatsPreset } from "./stats";
-import { concatErrorMsgAndStack, isJsStatsError } from "./util";
+import { concatErrorMsgAndStack, isJsStatsError, toJsAssetInfo } from "./util";
 import { createRawFromSource, createSourceFromRaw } from "./util/createSource";
 import {
 	createFakeCompilationDependencies,
@@ -132,10 +134,6 @@ export class Compilation {
 
 	get hash() {
 		return this.#inner.hash;
-	}
-
-	get chunks() {
-		return this.getChunks();
 	}
 
 	get fullHash() {
@@ -261,6 +259,10 @@ export class Compilation {
 			!context.forToString
 		);
 		options.moduleAssets = optionOrLocalFallback(options.moduleAssets, true);
+		options.nestedModules = optionOrLocalFallback(
+			options.nestedModules,
+			!context.forToString
+		);
 
 		return options;
 	}
@@ -275,14 +277,12 @@ export class Compilation {
 	 *
 	 * @param {string} file file name
 	 * @param {Source | function(Source): Source} newSourceOrFunction new asset source or function converting old to new
-	 * @param {JsAssetInfo | function(JsAssetInfo): JsAssetInfo} assetInfoUpdateOrFunction new asset info or function converting old to new
+	 * @param {AssetInfo | function(AssetInfo): AssetInfo} assetInfoUpdateOrFunction new asset info or function converting old to new
 	 */
 	updateAsset(
 		filename: string,
 		newSourceOrFunction: Source | ((source: Source) => Source),
-		assetInfoUpdateOrFunction:
-			| JsAssetInfo
-			| ((assetInfo: JsAssetInfo) => JsAssetInfo)
+		assetInfoUpdateOrFunction: AssetInfo | ((assetInfo: AssetInfo) => AssetInfo)
 	) {
 		let compatNewSourceOrFunction:
 			| JsCompatSource
@@ -303,7 +303,9 @@ export class Compilation {
 		this.#inner.updateAsset(
 			filename,
 			compatNewSourceOrFunction,
-			assetInfoUpdateOrFunction
+			typeof assetInfoUpdateOrFunction === "function"
+				? jsAssetInfo => toJsAssetInfo(assetInfoUpdateOrFunction(jsAssetInfo))
+				: toJsAssetInfo(assetInfoUpdateOrFunction)
 		);
 	}
 
@@ -331,16 +333,11 @@ export class Compilation {
 	 * @returns {void}
 	 */
 	emitAsset(filename: string, source: Source, assetInfo?: AssetInfo) {
-		const info = Object.assign(
-			{
-				minimized: false,
-				development: false,
-				hotModuleReplacement: false,
-				related: {}
-			},
-			assetInfo
+		this.#inner.emitAsset(
+			filename,
+			createRawFromSource(source),
+			toJsAssetInfo(assetInfo)
 		);
-		this.#inner.emitAsset(filename, createRawFromSource(source), info);
 	}
 
 	deleteAsset(filename: string) {
@@ -456,23 +453,22 @@ export class Compilation {
 		};
 	}
 
-	// TODO: full alignment
-	getPath(filename: string, data: Record<string, any> = {}) {
-		if (!data.hash) {
-			data = {
-				hash: this.hash,
-				...data
-			};
-		}
-		return this.getAssetPath(filename, data);
+	getPath(filename: string, data: PathData = {}) {
+		return this.#inner.getPath(filename, data);
 	}
 
-	// TODO: full alignment
-	// @ts-expect-error
-	getAssetPath(filename, data) {
-		return filename;
+	getPathWithInfo(filename: string, data: PathData = {}) {
+		return this.#inner.getPathWithInfo(filename, data);
 	}
-	// @ts-expect-error
+
+	getAssetPath(filename: string, data: PathData = {}) {
+		return this.#inner.getAssetPath(filename, data);
+	}
+
+	getAssetPathWithInfo(filename: string, data: PathData = {}) {
+		return this.#inner.getAssetPathWithInfo(filename, data);
+	}
+
 	getLogger(name: string | (() => string)) {
 		if (!name) {
 			throw new TypeError("Compilation.getLogger(name) called without a name");
@@ -527,7 +523,7 @@ export class Compilation {
 					}
 				}
 			},
-			childName => {
+			(childName): Logger => {
 				if (typeof name === "function") {
 					if (typeof childName === "function") {
 						return this.getLogger(() => {
@@ -618,6 +614,74 @@ export class Compilation {
 				...item
 			};
 		});
+	}
+
+	get chunks() {
+		var stats = this.getStats().toJson({
+			all: false,
+			chunks: true,
+			chunkModules: true,
+			reasons: true
+		});
+		const chunks = stats.chunks?.map(chunk => {
+			return {
+				...chunk,
+				name: chunk.names.length > 0 ? chunk.names[0] : "",
+				modules: this.__internal__getAssociatedModules(chunk),
+				isOnlyInitial: function () {
+					return this.initial;
+				}
+			};
+		});
+		return chunks;
+	}
+
+	/**
+	 * Get the associated `modules` of an given chunk.
+	 *
+	 * Note: This is not a webpack public API, maybe removed in future.
+	 *
+	 * @internal
+	 */
+	__internal__getAssociatedModules(chunk: JsStatsChunk): any[] | undefined {
+		let modules = this.getModules();
+		let moduleMap: Map<string, JsModule> = new Map();
+		for (let module of modules) {
+			moduleMap.set(module.moduleIdentifier, module);
+		}
+		return chunk.modules?.flatMap(chunkModule => {
+			let jsModule = this.__internal__findJsModule(
+				chunkModule.issuer ?? chunkModule.identifier,
+				moduleMap
+			);
+			return {
+				...jsModule
+				// dependencies: chunkModule.reasons?.flatMap(jsReason => {
+				// 	let jsOriginModule = this.__internal__findJsModule(
+				// 		jsReason.moduleIdentifier ?? "",
+				// 		moduleMap
+				// 	);
+				// 	return {
+				// 		...jsReason,
+				// 		originModule: jsOriginModule
+				// 	};
+				// })
+			};
+		});
+	}
+
+	/**
+	 * Find a modules in an array.
+	 *
+	 * Note: This is not a webpack public API, maybe removed in future.
+	 *
+	 * @internal
+	 */
+	__internal__findJsModule(
+		identifier: string,
+		modules: Map<string, JsModule>
+	): JsModule | undefined {
+		return modules.get(identifier);
 	}
 
 	getModules(): JsModule[] {
@@ -722,6 +786,22 @@ export class Compilation {
 	static PROCESS_ASSETS_STAGE_REPORT = 5000;
 
 	__internal_getProcessAssetsHookByStage(stage: number) {
+		if (stage > Compilation.PROCESS_ASSETS_STAGE_REPORT) {
+			this.pushDiagnostic(
+				"warning",
+				"not supported process_assets_stage",
+				`custom stage for process_assets is not supported yet, so ${stage} is fallback to Compilation.PROCESS_ASSETS_STAGE_REPORT(${Compilation.PROCESS_ASSETS_STAGE_REPORT}) `
+			);
+			stage = Compilation.PROCESS_ASSETS_STAGE_REPORT;
+		}
+		if (stage < Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL) {
+			this.pushDiagnostic(
+				"warning",
+				"not supported process_assets_stage",
+				`custom stage for process_assets is not supported yet, so ${stage} is fallback to Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL(${Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL}) `
+			);
+			stage = Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL;
+		}
 		switch (stage) {
 			case Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL:
 				return this.hooks.processAssets.stageAdditional;

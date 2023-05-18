@@ -273,7 +273,6 @@ class Compiler {
 			this.#_instance ??
 			new binding.Rspack(
 				options,
-
 				{
 					beforeCompile: this.#beforeCompile.bind(this),
 					make: this.#make.bind(this),
@@ -457,6 +456,10 @@ class Compiler {
 
 			return finalCallback(null, entries, compilation);
 		});
+	}
+	isChild() {
+		const isRoot = this.root === this;
+		return !isRoot;
 	}
 	getInfrastructureLogger(name: string | Function) {
 		if (!name) {

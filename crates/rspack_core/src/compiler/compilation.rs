@@ -27,7 +27,6 @@ use tokio::sync::mpsc::error::TryRecvError;
 use tracing::instrument;
 use xxhash_rust::xxh3::Xxh3;
 
-#[cfg(debug_assertions)]
 use crate::tree_shaking::visitor::OptimizeAnalyzeResult;
 use crate::{
   build_chunk_graph::build_chunk_graph,
@@ -42,10 +41,10 @@ use crate::{
   ChunkGroup, ChunkGroupUkey, ChunkHashArgs, ChunkKind, ChunkUkey, CleanQueue, CleanTask,
   CleanTaskResult, CodeGenerationResult, CodeGenerationResults, CompilerOptions, ContentHashArgs,
   DependencyId, EntryDependency, EntryItem, EntryOptions, Entrypoint, FactorizeQueue,
-  FactorizeTask, FactorizeTaskResult, Module, ModuleGraph, ModuleIdentifier, ModuleType,
-  NormalModuleAstOrSource, ProcessAssetsArgs, ProcessDependenciesQueue, ProcessDependenciesResult,
-  ProcessDependenciesTask, RenderManifestArgs, Resolve, ResolverFactory, RuntimeGlobals,
-  RuntimeModule, RuntimeSpec, SharedPluginDriver, Stats, TaskResult, WorkerTask,
+  FactorizeTask, FactorizeTaskResult, Filename, Module, ModuleGraph, ModuleIdentifier, ModuleType,
+  NormalModuleAstOrSource, PathData, ProcessAssetsArgs, ProcessDependenciesQueue,
+  ProcessDependenciesResult, ProcessDependenciesTask, RenderManifestArgs, Resolve, ResolverFactory,
+  RuntimeGlobals, RuntimeModule, RuntimeSpec, SharedPluginDriver, Stats, TaskResult, WorkerTask,
 };
 
 #[derive(Debug)]
@@ -94,8 +93,7 @@ pub struct Compilation {
   /// Collecting all module that need to skip in tree-shaking ast modification phase
   pub bailout_module_identifiers: IdentifierMap<BailoutFlag>,
   pub exports_info_map: IdentifierMap<Vec<ExportInfo>>,
-  #[cfg(debug_assertions)]
-  pub tree_shaking_result: IdentifierMap<OptimizeAnalyzeResult>,
+  pub optimize_analyze_result_map: IdentifierMap<OptimizeAnalyzeResult>,
 
   pub code_generation_results: CodeGenerationResults,
   pub code_generated_modules: IdentifierSet,
@@ -149,8 +147,7 @@ impl Compilation {
       entry_module_identifiers: IdentifierSet::default(),
       used_symbol_ref: HashSet::default(),
       exports_info_map: IdentifierMap::default(),
-      #[cfg(debug_assertions)]
-      tree_shaking_result: IdentifierMap::default(),
+      optimize_analyze_result_map: IdentifierMap::default(),
       bailout_module_identifiers: IdentifierMap::default(),
 
       code_generation_results: Default::default(),
@@ -810,7 +807,7 @@ impl Compilation {
     };
 
     // add context module and context element module to bailout_module_identifiers
-    if self.options.builtins.tree_shaking {
+    if self.options.builtins.tree_shaking.enable() {
       self.bailout_module_identifiers = self
         .module_graph
         .modules()
@@ -1318,7 +1315,9 @@ impl Compilation {
     )?;
     tracing::trace!("calculate runtime chunks content hash");
 
-    self.hash = format!("{:x}", compilation_hasher.finish());
+    // TODO(ahabhgk): refactor, upper-level wrapper for format!("{:016x}")
+    // 016 for length = 16
+    self.hash = format!("{:016x}", compilation_hasher.finish());
     tracing::trace!("compilation hash");
     Ok(())
   }
@@ -1417,6 +1416,40 @@ impl Compilation {
       .runtime_modules
       .insert(runtime_module_identifier, module);
   }
+
+  pub fn get_path<'b, 'a: 'b>(&'a self, filename: &Filename, mut data: PathData<'b>) -> String {
+    if data.hash.is_none() {
+      data.hash = Some(&self.hash);
+    }
+    filename.render(data, None)
+  }
+
+  pub fn get_path_with_info<'b, 'a: 'b>(
+    &'a self,
+    filename: &Filename,
+    mut data: PathData<'b>,
+  ) -> (String, AssetInfo) {
+    let mut info = AssetInfo::default();
+    if data.hash.is_none() {
+      data.hash = Some(&self.hash);
+    }
+    let path = filename.render(data, Some(&mut info));
+    (path, info)
+  }
+
+  pub fn get_asset_path(&self, filename: &Filename, data: PathData) -> String {
+    filename.render(data, None)
+  }
+
+  pub fn get_asset_path_with_info(
+    &self,
+    filename: &Filename,
+    data: PathData,
+  ) -> (String, AssetInfo) {
+    let mut info = AssetInfo::default();
+    let path = filename.render(data, Some(&mut info));
+    (path, info)
+  }
 }
 
 pub type CompilationAssets = HashMap<String, CompilationAsset>;
@@ -1466,7 +1499,7 @@ impl CompilationAsset {
 #[derive(Debug, Default, Clone)]
 pub struct AssetInfo {
   /// if the asset can be long term cached forever (contains a hash)
-  // pub immutable: bool,
+  pub immutable: bool,
   /// whether the asset is minimized
   pub minimized: bool,
   /// the value(s) of the full hash used for this asset
@@ -1476,7 +1509,7 @@ pub struct AssetInfo {
   /// the value(s) of the module hash used for this asset
   // pub module_hash:
   /// the value(s) of the content hash used for this asset
-  pub content_hash: Option<String>,
+  pub content_hash: HashSet<String>,
   /// when asset was created from a source file (potentially transformed), the original filename relative to compilation context
   // pub source_filename:
   /// size in bytes, only set after asset has been emitted
@@ -1512,9 +1545,17 @@ impl AssetInfo {
     self
   }
 
-  pub fn with_content_hash(mut self, v: Option<String>) -> Self {
+  pub fn with_content_hashes(mut self, v: HashSet<String>) -> Self {
     self.content_hash = v;
     self
+  }
+
+  pub fn set_content_hash(&mut self, v: String) {
+    self.content_hash.insert(v);
+  }
+
+  pub fn set_immutable(&mut self, v: bool) {
+    self.immutable = v;
   }
 }
 

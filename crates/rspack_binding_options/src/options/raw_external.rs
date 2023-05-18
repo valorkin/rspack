@@ -7,7 +7,6 @@ use rspack_core::ExternalItemFnCtx;
 use rspack_core::{ExternalItem, ExternalItemFnResult, ExternalItemObject, ExternalItemValue};
 use rspack_regex::RspackRegex;
 use serde::Deserialize;
-#[cfg(feature = "node-api")]
 use {
   napi::Env,
   rspack_error::internal_error,
@@ -47,10 +46,11 @@ impl Debug for RawExternalItem {
 #[serde(rename_all = "camelCase")]
 #[napi(object)]
 pub struct RawExternalItemValue {
-  #[napi(ts_type = r#""string" | "bool""#)]
+  #[napi(ts_type = r#""string" | "bool" | "array""#)]
   pub r#type: String,
   pub string_payload: Option<String>,
   pub bool_payload: Option<bool>,
+  pub array_payload: Option<Vec<String>>,
 }
 
 impl From<RawExternalItemValue> for ExternalItemValue {
@@ -65,6 +65,11 @@ impl From<RawExternalItemValue> for ExternalItemValue {
         value
           .bool_payload
           .expect("should have a bool_payload when RawExternalItemValue.type is \"bool\""),
+      ),
+      "array" => Self::Array(
+        value
+          .array_payload
+          .expect("should have a array_payload when RawExternalItemValue.type is \"array\""),
       ),
       _ => unreachable!(),
     }
@@ -133,7 +138,6 @@ impl TryFrom<RawExternalItem> for ExternalItem {
           .collect();
         Ok(payload.into())
       }
-      #[cfg(feature = "node-api")]
       "function" => {
         let fn_payload = value
           .fn_payload

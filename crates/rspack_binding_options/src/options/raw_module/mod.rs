@@ -3,7 +3,6 @@ mod js_loader;
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 use derivative::Derivative;
-#[cfg(feature = "node-api")]
 pub use js_loader::JsLoaderAdapter;
 pub use js_loader::*;
 use napi::bindgen_prelude::*;
@@ -14,7 +13,6 @@ use rspack_core::{
 };
 use rspack_error::internal_error;
 use serde::Deserialize;
-#[cfg(feature = "node-api")]
 use {
   rspack_napi_shared::threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode},
   rspack_napi_shared::{NapiResultExt, NAPI_ENV},
@@ -133,13 +131,17 @@ impl TryFrom<RawRuleSetCondition> for rspack_core::RuleSetCondition {
       "string" => Self::String(x.string_matcher.ok_or_else(|| {
         internal_error!("should have a string_matcher when RawRuleSetCondition.type is \"string\"")
       })?),
-      "regexp" => Self::Regexp(rspack_regex::RspackRegex::new(
-        &x.regexp_matcher.ok_or_else(|| {
-          internal_error!(
-            "should have a regexp_matcher when RawRuleSetCondition.type is \"regexp\""
-          )
-        })?,
-      )?),
+      "regexp" => {
+        let reg = rspack_regex::RspackRegex::new_with_optimized(
+            x.regexp_matcher.as_ref().ok_or_else(|| {
+              internal_error!(
+                "should have a regexp_matcher when RawRuleSetCondition.type is \"regexp\""
+              )
+            })?,
+        )?;
+        tracing::debug!(regex_matcher = ?x.regexp_matcher, algo_type = ?reg.algo);
+        Self::Regexp(reg)
+      },
       "logical" => {
         let mut logical_matcher = x.logical_matcher.ok_or_else(|| {
           internal_error!(
@@ -167,7 +169,6 @@ impl TryFrom<RawRuleSetCondition> for rspack_core::RuleSetCondition {
           .map(|i| i.try_into())
           .collect::<rspack_error::Result<Vec<_>>>()?,
       ),
-      #[cfg(feature = "node-api")]
       "function" => {
         let func_matcher = x.func_matcher.ok_or_else(|| {
           internal_error!(
@@ -320,7 +321,7 @@ impl RawOptionsApply for RawModuleRule {
   fn apply(
     self,
     _plugins: &mut Vec<rspack_core::BoxPlugin>,
-    #[cfg(feature = "node-api")] loader_runner: &JsLoaderRunner,
+    loader_runner: &JsLoaderRunner,
   ) -> std::result::Result<Self::Options, rspack_error::Error> {
     // Even this part is using the plural version of loader, it's recommended to use singular version from js side to reduce overhead (This behavior maybe changed later for advanced usage).
     let uses = self
@@ -329,7 +330,6 @@ impl RawOptionsApply for RawModuleRule {
           uses
             .into_iter()
             .map(|rule_use| {
-              #[cfg(feature = "node-api")]
               {
                 if let Some(raw_js_loader) = rule_use.js_loader {
                   return Ok(Arc::new(JsLoaderAdapter {runner: loader_runner.clone(), identifier: raw_js_loader.identifier.into()}) as BoxLoader);
@@ -352,15 +352,7 @@ impl RawOptionsApply for RawModuleRule {
       .map(|one_of| {
         one_of
           .into_iter()
-          .map(|raw| {
-            raw.apply(
-              _plugins,
-              #[cfg(feature = "node-api")]
-              {
-                loader_runner
-              },
-            )
-          })
+          .map(|raw| raw.apply(_plugins, loader_runner))
           .collect::<rspack_error::Result<Vec<_>>>()
       })
       .transpose()?;
@@ -414,20 +406,12 @@ impl RawOptionsApply for RawModuleOptions {
   fn apply(
     self,
     plugins: &mut Vec<rspack_core::BoxPlugin>,
-    #[cfg(feature = "node-api")] loader_runner: &JsLoaderRunner,
+    loader_runner: &JsLoaderRunner,
   ) -> std::result::Result<Self::Options, rspack_error::Error> {
     let rules = self
       .rules
       .into_iter()
-      .map(|rule| {
-        rule.apply(
-          plugins,
-          #[cfg(feature = "node-api")]
-          {
-            loader_runner
-          },
-        )
-      })
+      .map(|rule| rule.apply(plugins, loader_runner))
       .collect::<rspack_error::Result<Vec<ModuleRule>>>()?;
     Ok(ModuleOptions {
       rules,

@@ -1,6 +1,5 @@
 use std::{
   collections::hash_map::DefaultHasher,
-  ffi::OsStr,
   fs,
   hash::{Hash, Hasher},
   path::Path,
@@ -13,7 +12,7 @@ use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use rspack_core::{
   parse_to_url,
   rspack_sources::{RawSource, SourceExt},
-  CompilationAsset, Filename, FilenameRenderOptions, Plugin,
+  CompilationAsset, Filename, PathData, Plugin,
 };
 use serde::Deserialize;
 use sugar_path::SugarPath;
@@ -181,30 +180,15 @@ impl Plugin for HtmlPlugin {
     let source = parser.codegen(&mut current_ast)?;
     let hash = hash_for_ast_or_source(&source);
     let html_file_name = Filename::from(config.filename.clone());
-    let html_file_name = html_file_name.render(FilenameRenderOptions {
-      name: Path::new(&url)
-        .file_stem()
-        .map(|s| s.to_string_lossy().to_string()),
-      path: Some(
-        Path::new(&url)
-          .relative(&compilation.options.context)
-          .to_string_lossy()
-          .to_string(),
-      ),
-      extension: Path::new(&url)
-        .extension()
-        .and_then(OsStr::to_str)
-        .map(|str| format!("{}{}", ".", str)),
-      id: None,
-      contenthash: Some(hash.clone()),
-      chunkhash: Some(hash.clone()),
-      hash: Some(hash),
-      query: Some("".to_string()),
-      ..Default::default()
-    });
+    let (output_path, asset_info) = compilation.get_path_with_info(
+      &html_file_name,
+      PathData::default()
+        .filename(&Path::new(&url).relative(&compilation.options.context))
+        .content_hash(&hash),
+    );
     compilation.emit_asset(
-      html_file_name,
-      CompilationAsset::from(RawSource::from(source).boxed()),
+      output_path,
+      CompilationAsset::new(Some(RawSource::from(source).boxed()), asset_info),
     );
 
     if let Some(favicon) = &self.config.favicon {
@@ -228,5 +212,5 @@ impl Plugin for HtmlPlugin {
 fn hash_for_ast_or_source(ast_or_source: &str) -> String {
   let mut hasher = DefaultHasher::new();
   ast_or_source.hash(&mut hasher);
-  format!("{:x}", hasher.finish())
+  format!("{:016x}", hasher.finish())
 }
