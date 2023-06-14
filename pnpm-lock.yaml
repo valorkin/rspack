@@ -245,6 +245,7 @@ importers:
       ngx-bootstrap: ^10.3.0
       raw-loader: 4.0.2
       rxjs: ~7.8.0
+      style-loader: ^3.3.3
       tslib: ^2.3.0
       typescript: ~5.0.2
       zone.js: ~0.13.0
@@ -281,6 +282,7 @@ importers:
       karma-coverage: 2.2.0
       karma-jasmine: 5.1.0_karma@6.4.2
       karma-jasmine-html-reporter: 2.0.0_cxwlpiagq7t2nkpvfrmwozbm4y
+      style-loader: 3.3.3
       typescript: 5.0.2
 
   examples/arco-pro:
@@ -1422,7 +1424,7 @@ packages:
         optional: true
     dependencies:
       ajv: 8.12.0
-      ajv-formats: 2.1.1_ajv@8.12.0
+      ajv-formats: 2.1.1
       jsonc-parser: 3.2.0
       rxjs: 6.6.7
       source-map: 0.7.4
@@ -1438,7 +1440,7 @@ packages:
         optional: true
     dependencies:
       ajv: 8.12.0
-      ajv-formats: 2.1.1_ajv@8.12.0
+      ajv-formats: 2.1.1
       jsonc-parser: 3.2.0
       rxjs: 7.8.1
       source-map: 0.7.4
@@ -1454,7 +1456,7 @@ packages:
         optional: true
     dependencies:
       ajv: 8.12.0
-      ajv-formats: 2.1.1_ajv@8.12.0
+      ajv-formats: 2.1.1
       chokidar: 3.5.3
       jsonc-parser: 3.2.0
       rxjs: 7.8.1
@@ -1471,7 +1473,7 @@ packages:
         optional: true
     dependencies:
       ajv: 8.12.0
-      ajv-formats: 2.1.1_ajv@8.12.0
+      ajv-formats: 2.1.1
       jsonc-parser: 3.2.0
       rxjs: 7.8.1
       source-map: 0.7.4
@@ -11727,10 +11729,8 @@ packages:
       ajv: 6.12.6
     dev: true
 
-  /ajv-formats/2.1.1_ajv@8.12.0:
+  /ajv-formats/2.1.1:
     resolution: {integrity: sha512-Wx0Kx52hxE7C18hkMEggYlEifqWZtYaRgouJor+WMdPnQyEK13vgEWyVNup7SoeeoLMsr4kf5h6dOW11I15MUA==}
-    peerDependencies:
-      ajv: ^8.0.0
     peerDependenciesMeta:
       ajv:
         optional: true
@@ -23934,7 +23934,7 @@ packages:
     dependencies:
       '@types/json-schema': 7.0.12
       ajv: 8.12.0
-      ajv-formats: 2.1.1_ajv@8.12.0
+      ajv-formats: 2.1.1
       ajv-keywords: 5.1.0_ajv@8.12.0
 
   /scroll-into-view-if-needed/2.2.20:
@@ -27934,7 +27934,7 @@ packages:
     dev: false
 
   file:_npm_offline/angular-devkit-build-angular-16.0.1.tgz_jblf77w4sj6kzha75f74o4evwq:
-    resolution: {integrity: sha512-/3iQLE+qA2f2eilvvKf70mOiE9UmYQNeKYq5g0m88e3BynzK5mGEKMMopLENgJ0ImosN8tEndf9TpgTwBU/T8g==, tarball: file:_npm_offline/angular-devkit-build-angular-16.0.1.tgz}
+    resolution: {integrity: sha512-ryFABdKEPR+aKPKd6GR3ATNCMf8pPWS55U3K3KK6SjWY2w1pm9BWoJhHxf49uuGsY6aFOOKQ1srRWny1tGh2Ng==, tarball: file:_npm_offline/angular-devkit-build-angular-16.0.1.tgz}
     id: file:_npm_offline/angular-devkit-build-angular-16.0.1.tgz
     name: '@angular-devkit/build-angular'
     version: 16.0.1
@@ -28061,7 +28061,7 @@ packages:
     dev: true
 
   file:_npm_offline/angular-devkit-build-angular-16.0.1.tgz_k6mwjofo7vktf66du6x7yoarq4:
-    resolution: {integrity: sha512-/3iQLE+qA2f2eilvvKf70mOiE9UmYQNeKYq5g0m88e3BynzK5mGEKMMopLENgJ0ImosN8tEndf9TpgTwBU/T8g==, tarball: file:_npm_offline/angular-devkit-build-angular-16.0.1.tgz}
+    resolution: {integrity: sha512-ryFABdKEPR+aKPKd6GR3ATNCMf8pPWS55U3K3KK6SjWY2w1pm9BWoJhHxf49uuGsY6aFOOKQ1srRWny1tGh2Ng==, tarball: file:_npm_offline/angular-devkit-build-angular-16.0.1.tgz}
     id: file:_npm_offline/angular-devkit-build-angular-16.0.1.tgz
     name: '@angular-devkit/build-angular'
     version: 16.0.1
@@ -28188,7 +28188,7 @@ packages:
     dev: true
 
   file:_npm_offline/angular-devkit-build-angular-16.0.1.tgz_o7m6366b4anp3yuoab5wkcwq5a:
-    resolution: {integrity: sha512-/3iQLE+qA2f2eilvvKf70mOiE9UmYQNeKYq5g0m88e3BynzK5mGEKMMopLENgJ0ImosN8tEndf9TpgTwBU/T8g==, tarball: file:_npm_offline/angular-devkit-build-angular-16.0.1.tgz}
+    resolution: {integrity: sha512-ryFABdKEPR+aKPKd6GR3ATNCMf8pPWS55U3K3KK6SjWY2w1pm9BWoJhHxf49uuGsY6aFOOKQ1srRWny1tGh2Ng==, tarball: file:_npm_offline/angular-devkit-build-angular-16.0.1.tgz}
     id: file:_npm_offline/angular-devkit-build-angular-16.0.1.tgz
     name: '@angular-devkit/build-angular'
     version: 16.0.1

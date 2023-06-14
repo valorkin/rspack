@@ -138,6 +138,7 @@
           },
           "configurations": {
             "production": {
+              "verbose": false,
               "budgets": [
                 {
                   "type": "initial",
@@ -170,6 +171,7 @@
               "browserTarget": "rspack:build:production"
             },
             "development": {
+              "verbose": false,
               "browserTarget": "rspack:build:development"
             }
           },
