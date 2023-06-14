@@ -92,11 +92,16 @@ export interface AfterResolveData {
   fileDependencies: Array<string>
   contextDependencies: Array<string>
   missingDependencies: Array<string>
+  factoryMeta: FactoryMeta
 }
 
 export interface BeforeResolveData {
   request: string
   context: string
+}
+
+export interface FactoryMeta {
+  sideEffects?: boolean
 }
 
 /**
@@ -199,6 +204,7 @@ export interface JsHooks {
   afterCompile: (...args: any[]) => any
   finishModules: (...args: any[]) => any
   finishMake: (...args: any[]) => any
+  buildModule: (...args: any[]) => any
   beforeResolve: (...args: any[]) => any
   afterResolve: (...args: any[]) => any
   contextModuleBeforeResolve: (...args: any[]) => any

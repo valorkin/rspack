@@ -43,6 +43,7 @@ import {
 	createFakeCompilationDependencies,
 	createFakeProcessAssetsHook
 } from "./util/fake";
+import { NormalizedJsModule, normalizeJsModule } from "./util/normalization";
 import MergeCaller from "./util/MergeCaller";
 
 export type AssetInfo = Partial<JsAssetInfo> & Record<string, any>;
@@ -90,6 +91,7 @@ export class Compilation {
 		processWarnings: tapable.SyncWaterfallHook<[Error[]]>;
 		succeedModule: tapable.SyncHook<[JsModule], undefined>;
 		stillValidModule: tapable.SyncHook<[JsModule], undefined>;
+		buildModule: tapable.SyncHook<[NormalizedJsModule]>;
 	};
 	options: RspackOptionsNormalized;
 	outputOptions: OutputNormalized;
@@ -125,7 +127,8 @@ export class Compilation {
 			chunkAsset: new tapable.SyncHook(["chunk", "filename"]),
 			processWarnings: new tapable.SyncWaterfallHook(["warnings"]),
 			succeedModule: new tapable.SyncHook(["module"]),
-			stillValidModule: new tapable.SyncHook(["module"])
+			stillValidModule: new tapable.SyncHook(["module"]),
+			buildModule: new tapable.SyncHook(["module"])
 		};
 		this.compiler = compiler;
 		this.resolverFactory = compiler.resolverFactory;
@@ -587,41 +590,28 @@ export class Compilation {
 		);
 	}
 
-	get fileDependencies() {
-		return createFakeCompilationDependencies(
-			this.#inner.getFileDependencies(),
-			d => this.#inner.addFileDependencies(d)
-		);
-	}
+	fileDependencies = createFakeCompilationDependencies(
+		() => this.#inner.getFileDependencies(),
+		d => this.#inner.addFileDependencies(d)
+	);
 
-	get contextDependencies() {
-		return createFakeCompilationDependencies(
-			this.#inner.getContextDependencies(),
-			d => this.#inner.addContextDependencies(d)
-		);
-	}
+	contextDependencies = createFakeCompilationDependencies(
+		() => this.#inner.getContextDependencies(),
+		d => this.#inner.addContextDependencies(d)
+	);
 
-	get missingDependencies() {
-		return createFakeCompilationDependencies(
-			this.#inner.getMissingDependencies(),
-			d => this.#inner.addMissingDependencies(d)
-		);
-	}
+	missingDependencies = createFakeCompilationDependencies(
+		() => this.#inner.getMissingDependencies(),
+		d => this.#inner.addMissingDependencies(d)
+	);
 
-	get buildDependencies() {
-		return createFakeCompilationDependencies(
-			this.#inner.getBuildDependencies(),
-			d => this.#inner.addBuildDependencies(d)
-		);
-	}
+	buildDependencies = createFakeCompilationDependencies(
+		() => this.#inner.getBuildDependencies(),
+		d => this.#inner.addBuildDependencies(d)
+	);
 
 	get modules() {
-		return this.getModules().map(item => {
-			return {
-				identifier: () => item.moduleIdentifier,
-				...item
-			};
-		});
+		return this.getModules().map(item => normalizeJsModule(item));
 	}
 
 	get chunks() {
@@ -719,7 +709,7 @@ export class Compilation {
 		);
 	}
 
-	_rebuildModule = new MergeCaller(
+	_rebuildModuleCaller = new MergeCaller(
 		(args: Array<[string, (err: any, m: JsModule) => void]>) => {
 			this.#inner.rebuildModule(
 				args.map(item => item[0]),
@@ -738,7 +728,7 @@ export class Compilation {
 		10
 	);
 	rebuildModule(m: JsModule, f: (err: any, m: JsModule) => void) {
-		this._rebuildModule.run(m.moduleIdentifier, f);
+		this._rebuildModuleCaller.push([m.moduleIdentifier, f]);
 	}
 
 	/**
