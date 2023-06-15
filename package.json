@@ -90,7 +90,8 @@
       "@ngtools/webpack": "file:./_npm_offline/ngtools-webpack-16.0.1.tgz",
       "@rspack/cli": "workspace:*",
       "@rspack/core": "workspace:*",
-      "@rspack/dev-server": "workspace:*"
+      "@rspack/dev-server": "workspace:*",
+      "@rspack/plugin-minify": "workspace:*"
     }
   },
   "packageManager": "pnpm@7.32.0"
