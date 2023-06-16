@@ -15,7 +15,7 @@
       "prefix": "app",
       "architect": {
         "build": {
-          "builder": "@angular-devkit/build-webpack:webpack",
+          "builder": "@angular-devkit/build-angular:browser",
           "options": {
             "webpackConfig": "webpack.config.js"
           },

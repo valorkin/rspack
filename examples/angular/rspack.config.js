@@ -193,7 +193,7 @@ module.exports = {
 	},
 	plugins: [
 		// new DedupeModuleResolvePlugin(),
-		new NamedChunksPlugin(),
+		// new NamedChunksPlugin(),
 		new OccurrencesPlugin({
 			aot: true,
 			scriptsOptimization: false,
